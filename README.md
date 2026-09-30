@@ -41,13 +41,36 @@ status: inbox
 ```
 
 - `type` — one of `learning`, `idea`, `research`, `how-to`, `project-note`
-- `areas` — one or more of `van`, `motorcycles`, `cycling`, `sailing`, `automotive`,
-  `home-automation`, `homestead`, `spa-rpa`, `ai-learning`, `diy`, `family`, `work`, `general`
+- `areas` — one or more from a fixed list of life/work areas (see
+  [Customizing areas](#customizing-areas))
 - `tags` — freeform, lowercase, hyphenated
 
 Writes go to `Inbox/` and nowhere else. Reads are confined to the vault: absolute paths,
 `..`, non-`.md` files, and symlinks pointing outside are all rejected. There is no edit or
 delete tool — Obsidian is for that.
+
+### Customizing areas
+
+The shipped areas are the author's own (`van`, `motorcycles`, `cycling`, `sailing`,
+`automotive`, `home-automation`, `homestead`, `spa-rpa`, `ai-learning`, `diy`, `family`,
+`work`, `general`) — an example, not a recommendation. Replace them with whatever buckets
+fit your vault before you start capturing. Area keys are lowercase and hyphenated.
+
+1. Edit `AREAS` in `src/schema.ts`. It is the single source of truth: the server rejects
+   any area not in that list, on capture and on the `search_notes` area filter. Keeping
+   `general` (or some catch-all) is recommended so there is always a valid fallback.
+2. Update the skills that spell the list out so clients pick from the same values:
+   `skills/obsidian-capture/SKILL.md`, `skills-desktop/obsidian-capture/SKILL.md`, and
+   `skills-desktop/obsidian-recall/SKILL.md`. `scripts/test.sh` fails until every listed
+   copy matches `src/schema.ts` exactly, in order.
+3. Rebuild and redeploy: `npm run build`, `npm run deploy:skills`, and — if you uploaded
+   the Desktop skills — `npm run build:desktop-skills` and re-upload the zips. Restart
+   Claude Desktop so it launches the new server.
+
+Renaming or removing an area does not touch existing notes; their frontmatter keeps the
+old value, and the `search_notes` area filter will no longer accept it. Retag them in
+Obsidian if that matters to you. `NOTE_TYPES` in the same file can be customized the same
+way.
 
 ## Setup
 
