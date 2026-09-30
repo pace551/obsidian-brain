@@ -1,0 +1,16 @@
+# --- governance _common (SEC-SECRETS: env files never tracked) ---
+.env
+.env.*
+!.env.example
+.DS_Store
+.idea/
+.vscode/
+*.log
+
+# --- node / typescript ---
+node_modules/
+dist/
+coverage/
+
+# --- governance: vendored check scripts used by the local git hooks (not published) ---
+.governance/

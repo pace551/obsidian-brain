@@ -1,0 +1,39 @@
+{
+  "name": "obsidian-brain",
+  "version": "0.1.0",
+  "description": "Local stdio MCP server that captures and recalls structured notes in the personal Obsidian vault",
+  "type": "module",
+  "private": true,
+  "license": "BUSL-1.1",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "scripts/lint.sh",
+    "test": "scripts/test.sh",
+    "typecheck": "tsc --noEmit",
+    "inspect": "npm run build && npx --yes @modelcontextprotocol/inspector node dist/index.js",
+    "deploy:skills": "scripts/deploy-skills.sh",
+    "check:skill-drift": "scripts/check-skill-drift.sh",
+    "build:desktop-skills": "scripts/build-desktop-skills.sh",
+    "register:desktop": "scripts/register-desktop.sh"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9",
+    "@types/node": "^24",
+    "@vitest/coverage-v8": "^3",
+    "eslint": "^9",
+    "eslint-config-prettier": "^10",
+    "prettier": "^3",
+    "tsx": "^4",
+    "typescript": "^5",
+    "typescript-eslint": "^8",
+    "vitest": "^3"
+  }
+}

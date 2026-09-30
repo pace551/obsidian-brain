@@ -1,0 +1,13 @@
+dist/
+coverage/
+node_modules/
+
+# Skills are content, not source: skills/ must stay byte-identical to what is deployed
+# into ~/.claude/skills/ (check-skill-drift.sh compares them), and reflowing prose would
+# rewrite a Claude-facing document to satisfy a code formatter.
+skills/
+skills-desktop/
+
+# GOVERNANCE.md's fenced YAML is read by /verify-compliance; leave its shape alone.
+GOVERNANCE.md
+tests/fixtures/

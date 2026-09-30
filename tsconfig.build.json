@@ -1,0 +1,10 @@
+// Emit-only config: dist/index.js is what Claude Desktop launches, so the server
+// sources are rooted at src/ (the base config also type-checks tests + config files).
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "noEmit": false
+  },
+  "include": ["src"]
+}
