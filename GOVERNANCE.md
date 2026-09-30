@@ -118,7 +118,7 @@ secret, and is supplied by the MCP client config.
 
 ### 2026-09-30 re-classification: publication
 
-The project moved out of the private `home` monorepo to `~/Dev/claude-code/obsidian-brain`
+The project moved out of the private `home` monorepo to `~/Dev/claude-code/public/obsidian-brain`
 and its own **public** GitHub repo, `pace551/obsidian-brain`, with a fresh single-commit
 history. Tier stays **T1**: publication adds no deployment and no second runtime user
 (rubric line 2). The tiers.md **published library/package carve-out** applies, as it did
