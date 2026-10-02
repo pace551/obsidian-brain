@@ -14,6 +14,7 @@ src/
   config.ts   vault root ($OBSIDIAN_VAULT_ROOT, else ~/Documents/Obsidian/Personal)
   schema.ts   NOTE_TYPES / AREAS + zod tool input schemas — the note contract
   note.ts     slugify, render, collision suffix, atomic write
+  edit.ts     update_note: surgical section/frontmatter edits, hash check, source guard
   vault.ts    path safety, vault walk, frontmatter + section parser
   search.ts   ranked scan + recency listing
   tools.ts    registerTool wiring (behavior lives in the modules above)

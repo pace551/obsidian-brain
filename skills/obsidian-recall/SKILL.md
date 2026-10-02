@@ -74,5 +74,5 @@ The user's request may contain:
 - Default to ripgrep (`rg`) — fast and handles markdown well.
 - If zero matches: broaden the search (drop tag filters, try partial-word matches) and try again before reporting nothing found.
 - If the query is vague, it's fine to ask one clarifying question — but try the search first and show what you found.
-- Never modify notes during recall. Read-only.
+- Never modify notes as a side effect of recall. When the user asks to change a note, use the obsidian-brain `update_note` tool (after `read_note` for its `hash`, and after the user confirms the change) rather than Write/Edit on the file — it keeps the note format and refuses hand-written notes and notes that changed underneath you.
 - Results should fit on one screen. Don't dump entire note bodies into the conversation unless asked — the Resume Prompt + Key Learnings is usually enough to continue.

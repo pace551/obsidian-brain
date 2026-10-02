@@ -9,11 +9,12 @@ Find and resume prior work captured in the user's Obsidian vault.
 
 ## How searching works here
 
-This variant has no filesystem access and no ripgrep. Use the **obsidian-brain** MCP server's read-only tools:
+This variant has no filesystem access and no ripgrep. Use the **obsidian-brain** MCP server's tools:
 
 - **`search_notes`** — `{query?, area?, type?, tag?, modified_within_days?, limit?}`. Does the ranking for you: title matches beat tag and area matches, which beat other frontmatter, which beats the Summary section, which beats the body; ties break toward the most recently modified note.
 - **`list_recent`** — `{n?}` for "what was I just working on".
-- **`read_note`** — `{path}` returns the note's title, frontmatter, and parsed sections.
+- **`read_note`** — `{path}` returns the note's title, frontmatter, parsed sections, and a `hash`.
+- **`update_note`** — `{path, expected_hash, …fields}` edits a note in place. Only for when the user asks to change a note — see *Updating a note*.
 
 If the obsidian-brain tools are not available, say so plainly and stop — there is no other route to the vault from this session.
 
@@ -53,9 +54,18 @@ The user's request may contain:
 
 6. **Offer to continue.** Say something like: "Ready to pick up here. Want me to start from the resume prompt, or do you have a different angle?"
 
+## Updating a note
+
+When the user asks to change a note — add a learning, correct the summary, refresh the Resume Prompt after more work, retag it:
+
+1. `read_note` it (again, if it may have changed) and keep the returned `hash`.
+2. Tell the user exactly what will change, and get a yes.
+3. Call `update_note` with `path`, `expected_hash` set to that hash, and only the fields that change. `add_key_learnings` / `add_ideas` append; `key_learnings` / `ideas` replace the whole list (`ideas: []` removes the section); `summary`, `resume_prompt`, `context`, `title`, `type`, `areas`, `tags`, `status` replace.
+4. If it fails with "changed since it was read", the note was edited elsewhere: `read_note` again, re-check the edit still makes sense, and retry with the new hash. If it fails because the note isn't `source: claude`, it's hand-written — tell the user to edit it in Obsidian.
+
 ## Guidelines
 
 - If zero matches: broaden before reporting nothing found — drop the tag/area filter, or try fewer keywords — then try again.
 - If the query is vague, it's fine to ask one clarifying question — but run the search first and show what you found.
-- Recall is read-only. The server has no edit or delete tool; never try to "fix" a note from here.
+- Searching and loading never change a note. Only call `update_note` when the user asked for a change; there is no delete tool.
 - Results should fit on one screen. The `sections` from `read_note` include the whole note — surface the Resume Prompt and Key Learnings, not the raw body, unless the user asks for it.

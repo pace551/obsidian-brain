@@ -16,6 +16,7 @@ malformed note nobody notices for six months.
 | `search_notes` | Ranked keyword search with area/type/tag/recency filters. Read-only.                         |
 | `list_recent`  | The N most recently modified notes. Read-only.                                               |
 | `read_note`    | One note by vault-relative path, with frontmatter and sections parsed out. Read-only.        |
+| `update_note`  | Edit a `source: claude` note in place: replace/append sections, retitle, change frontmatter. |
 
 Notes land as `Inbox/YYYY-MM-DD <slug>.md`:
 
@@ -45,9 +46,16 @@ status: inbox
   [Customizing areas](#customizing-areas))
 - `tags` — freeform, lowercase, hyphenated
 
-Writes go to `Inbox/` and nowhere else. Reads are confined to the vault: absolute paths,
-`..`, non-`.md` files, and symlinks pointing outside are all rejected. There is no edit or
-delete tool — Obsidian is for that.
+New notes go to `Inbox/` and nowhere else. Reads and edits are confined to the vault:
+absolute paths, `..`, non-`.md` files, and symlinks pointing outside are all rejected.
+
+`update_note` edits notes this server wrote (`source: claude` in the frontmatter) wherever
+they now live in the vault; hand-written notes are refused. Edits are surgical — fields you
+don't pass stay byte-for-byte as they were, including frontmatter keys and sections added
+by hand in Obsidian. Each edit must carry the `hash` from the `read_note` (or previous
+`update_note`) that preceded it, and is refused if the file changed in between, so a stale
+model can't overwrite something you just edited. There is no delete tool — Obsidian is for
+that.
 
 ### Customizing areas
 

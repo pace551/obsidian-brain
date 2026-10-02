@@ -1,4 +1,4 @@
-/** The four tools. Wiring only — the behavior lives in note/vault/search. */
+/** The five tools. Wiring only — the behavior lives in note/edit/vault/search. */
 
 import { readFile } from "node:fs/promises";
 import { basename, join } from "node:path";
@@ -7,6 +7,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 import { INBOX_DIR } from "./config.js";
+import { contentHash, updateNote } from "./edit.js";
 import { renderNote, slugify, today, writeNoteAtomic } from "./note.js";
 import type { CaptureNoteInput } from "./schema.js";
 import {
@@ -14,6 +15,7 @@ import {
   listRecentShape,
   readNoteShape,
   searchNotesShape,
+  updateNoteShape,
 } from "./schema.js";
 import { listRecent, searchNotes } from "./search.js";
 import { assertVaultRoot, parseNote, resolveNotePath } from "./vault.js";
@@ -113,8 +115,9 @@ export function registerTools(server: McpServer, vaultRoot: string): void {
       title: "Read an Obsidian note",
       description:
         "Read one note by vault-relative path and return its title, frontmatter, and " +
-        "parsed sections (Summary, Key Learnings, Resume Prompt, …) plus the raw text. " +
-        "Paths are confined to the vault. Read-only.",
+        "parsed sections (Summary, Key Learnings, Resume Prompt, …) plus the raw text " +
+        "and a content hash (pass it to update_note). Paths are confined to the vault. " +
+        "Read-only.",
       inputSchema: readNoteShape,
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
@@ -129,7 +132,28 @@ export function registerTools(server: McpServer, vaultRoot: string): void {
           frontmatter: note.frontmatter,
           sections: note.sections,
           raw,
+          hash: contentHash(raw),
         });
       }),
+  );
+
+  server.registerTool(
+    "update_note",
+    {
+      title: "Update an Obsidian note",
+      description:
+        "Edit a note in place: replace or append to its sections (Summary, Key Learnings, " +
+        "Ideas / Follow-ups, Resume Prompt, Context), retitle it, or change its type, " +
+        "areas, tags, or status. Fields you omit are left exactly as they are, including " +
+        "anything added by hand. Only notes with source: claude can be edited. Call " +
+        "read_note first and pass its hash as expected_hash; the update is refused if the " +
+        "note changed since. Returns the new hash.",
+      inputSchema: updateNoteShape,
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false },
+    },
+    async ({ path, expected_hash, ...edits }) =>
+      withVault(vaultRoot, async (realRoot) =>
+        ok(await updateNote(realRoot, path, expected_hash, edits)),
+      ),
   );
 }

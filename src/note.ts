@@ -40,14 +40,14 @@ export function today(now: Date = new Date()): string {
   return `${String(now.getFullYear())}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }
 
-function yamlList(key: string, values: readonly string[]): string {
+export function yamlList(key: string, values: readonly string[]): string {
   // A bare `tags:` parses as null, which Obsidian's property editor renders as an empty
   // value rather than an empty list. `[]` says what it means.
   if (values.length === 0) return `${key}: []`;
   return [`${key}:`, ...values.map((v) => `  - ${v}`)].join("\n");
 }
 
-function bullets(items: readonly string[]): string {
+export function bullets(items: readonly string[]): string {
   return items.map((item) => `- ${item.trim()}`).join("\n");
 }
 

@@ -72,14 +72,21 @@ afterAll(async () => {
 });
 
 describe("tool surface", () => {
-  test("advertises exactly the four tools", async () => {
+  test("advertises exactly the five tools", async () => {
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual([
       "capture_note",
       "list_recent",
       "read_note",
       "search_notes",
+      "update_note",
     ]);
+  });
+
+  test("marks update_note as the one destructive tool", async () => {
+    const { tools } = await client.listTools();
+    const destructive = tools.filter((t) => t.annotations?.destructiveHint === true);
+    expect(destructive.map((t) => t.name)).toEqual(["update_note"]);
   });
 
   test("publishes the area and type enums in capture_note's schema", async () => {
@@ -237,5 +244,57 @@ describe("validation and path safety at the protocol boundary", () => {
   test("caps search_notes limit at 10", async () => {
     const result = await call("search_notes", { query: "victron", limit: 50 });
     expect(result.isError).toBe(true);
+  });
+});
+
+describe("update_note over stdio", () => {
+  const PATH = "Areas/van/2026-03-14 existing-solar-note.md";
+
+  test("read → update → read round-trips, and a stale hash is refused", async () => {
+    const before = jsonOf(await call("read_note", { path: PATH }));
+    const updated = jsonOf(
+      await call("update_note", {
+        path: PATH,
+        expected_hash: before["hash"],
+        add_key_learnings: ["Added over stdio."],
+        tags: ["solar", "edited"],
+      }),
+    );
+    expect(updated["hash"]).not.toBe(before["hash"]);
+
+    const after = jsonOf(await call("read_note", { path: PATH }));
+    expect(after["hash"]).toBe(updated["hash"]);
+    expect((after["sections"] as Record<string, string>)["Key Learnings"]).toContain(
+      "- Added over stdio.",
+    );
+    expect(after["frontmatter"]).toMatchObject({ tags: ["solar", "edited"] });
+
+    const stale = await call("update_note", {
+      path: PATH,
+      expected_hash: before["hash"],
+      summary: "Should not land.",
+    });
+    expect(stale.isError).toBe(true);
+    expect(textOf(stale)).toMatch(/changed since it was read/u);
+  });
+
+  test("rejects an area outside the enum", async () => {
+    const note = jsonOf(await call("read_note", { path: PATH }));
+    const result = await call("update_note", {
+      path: PATH,
+      expected_hash: note["hash"],
+      areas: ["quantum-basket-weaving"],
+    });
+    expect(result.isError).toBe(true);
+  });
+
+  test("refuses to escape the vault", async () => {
+    const result = await call("update_note", {
+      path: "../../etc/hosts.md",
+      expected_hash: "0".repeat(64),
+      summary: "x",
+    });
+    expect(result.isError).toBe(true);
+    expect(textOf(result)).toMatch(/traverse/u);
   });
 });

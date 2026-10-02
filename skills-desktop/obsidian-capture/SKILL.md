@@ -52,4 +52,4 @@ If the user's request includes a scope hint (e.g. "just the Victron MPPT part", 
 - The resume prompt should be **dense**. Assume whoever reads it (human or Claude) has zero context — every sentence must carry weight.
 - Use specific names, versions, numbers. Avoid hedging language.
 - If the session produced nothing worth keeping, say so and don't create a note. Don't fabricate value.
-- The tool writes to the vault's `Inbox/` only, and never overwrites an existing note. There is no delete or edit tool — a wrong note has to be fixed in Obsidian, so get confirmation before writing.
+- The tool writes to the vault's `Inbox/` only, and never overwrites an existing note. A wrong note can be corrected afterwards with `update_note` (see the obsidian-recall skill), but there is no delete tool — get confirmation before writing.

@@ -119,3 +119,64 @@ export const ReadNoteInput = z.object({
 export type ReadNoteInput = z.infer<typeof ReadNoteInput>;
 
 export const readNoteShape = ReadNoteInput.shape;
+
+export const HASH_PATTERN = /^[0-9a-f]{64}$/;
+
+/**
+ * Every edit field is optional; what is present is applied, what is absent is left
+ * exactly as it is. Replace-vs-append is spelled out per list so "add one learning"
+ * can never silently drop the others.
+ */
+export const updateNoteShape = {
+  path: nonEmpty("path").describe(
+    "Vault-relative path to the note, exactly as search_notes or read_note returned it",
+  ),
+  expected_hash: z
+    .string()
+    .regex(HASH_PATTERN, "expected_hash must be the 64-character hash read_note returned")
+    .describe(
+      "The hash from the read_note (or previous update_note) call; the update is " +
+        "refused if the note changed since",
+    ),
+  title: nonEmpty("title").max(200).optional().describe("New H1 title"),
+  type: z.enum(NOTE_TYPES).optional().describe("New note type"),
+  areas: z
+    .array(z.enum(AREAS))
+    .min(1, "at least one area is required")
+    .optional()
+    .describe("Replaces the areas list"),
+  tags: z.array(tag).optional().describe("Replaces the tags list; [] clears it"),
+  status: z
+    .string()
+    .regex(TAG_PATTERN, "status must be lowercase, hyphenated, and start alphanumeric")
+    .optional()
+    .describe("New status, e.g. inbox or processed"),
+  summary: nonEmpty("summary").optional().describe("Replaces the Summary section"),
+  key_learnings: z
+    .array(nonEmpty("key learning"))
+    .min(1, "at least one key learning is required")
+    .optional()
+    .describe("Replaces all Key Learnings"),
+  add_key_learnings: z
+    .array(nonEmpty("key learning"))
+    .min(1)
+    .optional()
+    .describe("Appended to the existing Key Learnings"),
+  ideas: z
+    .array(nonEmpty("idea"))
+    .optional()
+    .describe("Replaces Ideas / Follow-ups; [] removes the section"),
+  add_ideas: z
+    .array(nonEmpty("idea"))
+    .min(1)
+    .optional()
+    .describe("Appended to Ideas / Follow-ups, creating the section if needed"),
+  resume_prompt: nonEmpty("resume_prompt")
+    .optional()
+    .describe("Replaces the Resume Prompt text (the paste hint is kept)"),
+  context: nonEmpty("context").optional().describe("Replaces the Context section"),
+};
+
+export const UpdateNoteInput = z.object(updateNoteShape);
+export type UpdateNoteInput = z.infer<typeof UpdateNoteInput>;
+export type NoteEdits = Omit<UpdateNoteInput, "path" | "expected_hash">;

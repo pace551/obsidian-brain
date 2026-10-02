@@ -186,3 +186,38 @@ describe("server metadata", () => {
     expect(client.getInstructions()).toContain("capture_note");
   });
 });
+
+describe("update_note", () => {
+  const PATH = "Inbox/2026-01-01 editable.md";
+
+  test("applies an edit using the hash read_note returned", async () => {
+    vault = await makeVault([{ path: PATH, content: noteContent({ summary: "Old." }) }]);
+    const client = await connect(vault.root);
+
+    const read = (await client.callTool({
+      name: "read_note",
+      arguments: { path: PATH },
+    })) as CallToolResult;
+    const { hash } = JSON.parse(textOf(read)) as { hash: string };
+
+    const result = (await client.callTool({
+      name: "update_note",
+      arguments: { path: PATH, expected_hash: hash, summary: "New." },
+    })) as CallToolResult;
+    expect(result.isError).toBeFalsy();
+    expect(JSON.parse(textOf(result))).toMatchObject({ path: PATH });
+  });
+
+  test("returns a tool error for a hand-written note", async () => {
+    const content = noteContent().replace("source: claude", "source: me");
+    vault = await makeVault([{ path: PATH, content }]);
+    const client = await connect(vault.root);
+
+    const result = (await client.callTool({
+      name: "update_note",
+      arguments: { path: PATH, expected_hash: "0".repeat(64), summary: "New." },
+    })) as CallToolResult;
+    expect(result.isError).toBe(true);
+    expect(textOf(result)).toMatch(/only notes with source: claude/u);
+  });
+});
