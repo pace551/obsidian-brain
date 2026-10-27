@@ -4,7 +4,7 @@
  * onto the vault root.
  */
 
-import { readdir, realpath, stat } from "node:fs/promises";
+import { mkdir, readdir, realpath, stat } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 
 import { SEARCH_DIRS, SKIP_DIRS } from "./config.js";
@@ -67,7 +67,25 @@ export async function resolveNotePath(
   return canonical;
 }
 
-function isInside(root: string, candidate: string): boolean {
+/**
+ * Create (if needed) and canonicalize a vault directory the server writes into, or refuse.
+ * `mkdir` follows a symlinked directory, so the result is re-checked after `realpath`: an
+ * `Inbox` that is a link to somewhere outside the vault must not receive notes.
+ */
+export async function resolveVaultDir(realRoot: string, relDir: string): Promise<string> {
+  const candidate = resolve(realRoot, relDir);
+  if (!isInside(realRoot, candidate)) {
+    throw new VaultError(`directory escapes the vault: ${relDir}`);
+  }
+  await mkdir(candidate, { recursive: true });
+  const canonical = await realpath(candidate);
+  if (!isInside(realRoot, canonical)) {
+    throw new VaultError(`directory escapes the vault via a symlink: ${relDir}`);
+  }
+  return canonical;
+}
+
+export function isInside(root: string, candidate: string): boolean {
   if (candidate === root) return true;
   const rel = relative(root, candidate);
   return rel !== "" && !rel.startsWith(`..${sep}`) && rel !== ".." && !isAbsolute(rel);

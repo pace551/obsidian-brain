@@ -5,7 +5,7 @@
  * (a vault that does not exist, an unreadable note).
  */
 
-import { chmod, readdir, rm } from "node:fs/promises";
+import { chmod, readdir, rm, symlink } from "node:fs/promises";
 import { join } from "node:path";
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -140,6 +140,27 @@ describe("capture_note", () => {
     })) as CallToolResult;
 
     expect(result.isError).toBeFalsy();
+  });
+
+  test("refuses to write through an Inbox that is a symlink out of the vault", async () => {
+    vault = await makeVault();
+    const elsewhere = await makeVault();
+    try {
+      await rm(join(vault.root, "Inbox"), { recursive: true, force: true });
+      await symlink(join(elsewhere.root, "Areas"), join(vault.root, "Inbox"));
+      const client = await connect(vault.root);
+
+      const result = (await client.callTool({
+        name: "capture_note",
+        arguments: MINIMAL_CAPTURE,
+      })) as CallToolResult;
+
+      expect(result.isError).toBe(true);
+      expect(textOf(result)).toMatch(/escapes the vault via a symlink/u);
+      expect(await readdir(join(elsewhere.root, "Areas"))).toEqual([]);
+    } finally {
+      await elsewhere.cleanup();
+    }
   });
 });
 

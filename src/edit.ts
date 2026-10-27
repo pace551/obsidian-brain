@@ -8,16 +8,21 @@
  */
 
 import { createHash } from "node:crypto";
-import { readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
-import { basename, dirname, join } from "node:path";
+import { readFile, rename, stat, unlink } from "node:fs/promises";
+import { basename, dirname } from "node:path";
 
-import { assertNoStructuralHeadings, bullets, normalizeTitle, yamlList } from "./note.js";
+import {
+  assertNoStructuralHeadings,
+  assertRegularFile,
+  bullets,
+  normalizeTitle,
+  writeTempFile,
+  yamlList,
+} from "./note.js";
 import type { NoteEdits } from "./schema.js";
 import { VaultError, parseNote, resolveNotePath } from "./vault.js";
 
 const IDEAS = "Ideas / Follow-ups";
-
-let tempCounter = 0;
 
 export function contentHash(raw: string): string {
   return createHash("sha256").update(raw, "utf8").digest("hex");
@@ -188,14 +193,10 @@ export async function updateNote(
 
   // Same temp-then-rename discipline as capture: Obsidian never sees a half-written file.
   // The hash is re-checked just before the rename to narrow the window for a hand edit.
-  tempCounter += 1;
-  const temp = join(
-    dirname(absolute),
-    `.obsidian-brain-${String(process.pid)}-${String(tempCounter)}.tmp`,
-  );
   const mode = (await stat(absolute)).mode & 0o777;
-  await writeFile(temp, updated, { encoding: "utf8", mode });
+  const temp = await writeTempFile(dirname(absolute), updated, mode);
   try {
+    await assertRegularFile(temp);
     assertUnchanged(await readFile(absolute, "utf8"), expectedHash, relPath);
     await rename(temp, absolute);
   } catch (error) {
