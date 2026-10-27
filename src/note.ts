@@ -5,9 +5,27 @@ import { link, lstat, mkdir, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import type { CaptureNoteInput } from "./schema.js";
+import { VaultError } from "./vault.js";
 
 const MAX_SLUG_WORDS = 6;
 const MAX_COLLISION_SUFFIX = 50;
+
+/** A line that would start a new title or section — the structure the parser relies on. */
+const STRUCTURAL_HEADING = /^#{1,2}\s/mu;
+
+/**
+ * Refuse any field whose text (or any list item) contains a `#`/`##` heading line. Note
+ * text is inserted verbatim between the server's own headings, so such a line would
+ * forge a section — e.g. a second `## Resume Prompt` — that the server never wrote.
+ */
+export function assertNoStructuralHeadings(fields: Record<string, unknown>): void {
+  for (const [field, value] of Object.entries(fields)) {
+    const texts: unknown[] = Array.isArray(value) ? value : [value];
+    if (texts.some((t) => typeof t === "string" && STRUCTURAL_HEADING.test(t))) {
+      throw new VaultError(`${field} must not contain a "#" or "##" heading line`);
+    }
+  }
+}
 
 /** Collapse any run of whitespace so a title can't smuggle newlines into the heading. */
 export function normalizeTitle(title: string): string {
@@ -52,9 +70,16 @@ export function bullets(items: readonly string[]): string {
 /**
  * Render the exact note format the Obsidian skills describe. The `Ideas / Follow-ups`
  * section is omitted entirely when there is nothing to list — an empty section reads as
- * a to-do that was never filled in.
+ * a to-do that was never filled in. Throws if any body field would inject a heading.
  */
 export function renderNote(input: CaptureNoteInput, date: string): string {
+  assertNoStructuralHeadings({
+    summary: input.summary,
+    key_learnings: input.key_learnings,
+    ideas: input.ideas,
+    resume_prompt: input.resume_prompt,
+    context: input.context,
+  });
   const title = normalizeTitle(input.title);
   const frontmatter = [
     "---",

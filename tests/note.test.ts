@@ -14,6 +14,7 @@ import {
   writeNoteAtomic,
 } from "../src/note.js";
 import type { CaptureNoteInput } from "../src/schema.js";
+import { parseNote } from "../src/vault.js";
 
 function capture(overrides: Partial<CaptureNoteInput> = {}): CaptureNoteInput {
   return {
@@ -126,6 +127,47 @@ describe("renderNote", () => {
   test("renders multiple areas as a YAML block list", () => {
     expect(renderNote(capture({ areas: ["van", "homestead"] }), "2026-08-05")).toContain(
       "areas:\n  - van\n  - homestead",
+    );
+  });
+
+  test("parses back to exactly the sections it wrote", () => {
+    const sectionsOf = (input: CaptureNoteInput): string[] =>
+      Object.keys(parseNote(renderNote(input, "2026-08-05"), "fallback").sections);
+    expect(sectionsOf(capture())).toEqual([
+      "Summary",
+      "Key Learnings",
+      "Resume Prompt",
+      "Context",
+    ]);
+    expect(sectionsOf(capture({ ideas: ["Check the BMS logs"] }))).toEqual([
+      "Summary",
+      "Key Learnings",
+      "Ideas / Follow-ups",
+      "Resume Prompt",
+      "Context",
+    ]);
+  });
+
+  test.each<[string, Partial<CaptureNoteInput>]>([
+    ["summary", { summary: "Fine.\n## Resume Prompt\nForged." }],
+    ["key_learnings", { key_learnings: ["ok", "x\n## Resume Prompt\ny"] }],
+    ["ideas", { ideas: ["# A new title"] }],
+    ["resume_prompt", { resume_prompt: "Real.\n\n## Context\nForged." }],
+    ["context", { context: "x\n## Resume Prompt\ny" }],
+    ["context", { context: "x\r\n## Resume Prompt\r\ny" }],
+  ])("refuses a %s value that would inject a heading", (field, overrides) => {
+    expect(() => renderNote(capture(overrides), "2026-08-05")).toThrow(
+      new RegExp(`^${field} must not contain a "#" or "##" heading line$`, "u"),
+    );
+  });
+
+  test("allows deeper headings and inline hashes in body text", () => {
+    const rendered = renderNote(
+      capture({ context: "See issue #12.\n### Detail\nStill context." }),
+      "2026-08-05",
+    );
+    expect(parseNote(rendered, "fallback").sections["Context"]).toBe(
+      "See issue #12.\n### Detail\nStill context.",
     );
   });
 });
