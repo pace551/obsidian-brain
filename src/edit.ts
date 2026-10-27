@@ -11,13 +11,11 @@ import { createHash } from "node:crypto";
 import { readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 
-import { bullets, normalizeTitle, yamlList } from "./note.js";
+import { assertNoStructuralHeadings, bullets, normalizeTitle, yamlList } from "./note.js";
 import type { NoteEdits } from "./schema.js";
 import { VaultError, parseNote, resolveNotePath } from "./vault.js";
 
 const IDEAS = "Ideas / Follow-ups";
-/** A line that would start a new title or section — the structure the edit relies on. */
-const STRUCTURAL_HEADING = /^#{1,2}\s/mu;
 
 let tempCounter = 0;
 
@@ -39,12 +37,7 @@ export function applyEdits(raw: string, edits: NoteEdits): string {
   if (edits.ideas !== undefined && edits.add_ideas !== undefined) {
     throw new VaultError("pass ideas or add_ideas, not both");
   }
-  for (const [field, value] of Object.entries(edits)) {
-    const texts: unknown[] = Array.isArray(value) ? value : [value];
-    if (texts.some((t) => typeof t === "string" && STRUCTURAL_HEADING.test(t))) {
-      throw new VaultError(`${field} must not contain a "#" or "##" heading line`);
-    }
-  }
+  assertNoStructuralHeadings(edits);
 
   const eol = raw.includes("\r\n") ? "\r\n" : "\n";
   const lines = raw.replace(/\r\n/gu, "\n").split("\n");

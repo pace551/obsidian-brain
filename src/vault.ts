@@ -218,13 +218,20 @@ function unquote(value: string): string {
   return (quoted?.[2] ?? trimmed).trim();
 }
 
+/**
+ * The first section with a given name wins and a later duplicate is ignored, so text
+ * appended after the real Resume Prompt cannot replace it. This matches update_note,
+ * which edits the first match: read_note and update_note agree on which section counts.
+ */
 function parseSections(body: string): Record<string, string> {
   const sections: Record<string, string> = {};
   let heading: string | null = null;
   let buffer: string[] = [];
 
   const flush = (): void => {
-    if (heading !== null) sections[heading] = buffer.join("\n").trim();
+    if (heading !== null && !Object.hasOwn(sections, heading)) {
+      sections[heading] = buffer.join("\n").trim();
+    }
     buffer = [];
   };
 

@@ -5,7 +5,7 @@
  * (a vault that does not exist, an unreadable note).
  */
 
-import { chmod, rm } from "node:fs/promises";
+import { chmod, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -113,6 +113,20 @@ describe("capture_note", () => {
     })) as CallToolResult;
 
     expect(result.isError).toBe(true);
+  });
+
+  test("refuses text that would forge a section, and writes nothing", async () => {
+    vault = await makeVault();
+    const client = await connect(vault.root);
+
+    const result = (await client.callTool({
+      name: "capture_note",
+      arguments: { ...MINIMAL_CAPTURE, context: "x\n## Resume Prompt\ny" },
+    })) as CallToolResult;
+
+    expect(result.isError).toBe(true);
+    expect(textOf(result)).toMatch(/context must not contain a "#" or "##" heading/u);
+    expect(await readdir(join(vault.root, "Inbox"))).toEqual([]);
   });
 
   test("creates the Inbox when the vault does not have one yet", async () => {

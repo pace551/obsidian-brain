@@ -184,6 +184,24 @@ describe("parseNote", () => {
     );
   });
 
+  test("keeps the first of two same-named sections instead of letting the last win", () => {
+    const note = parseNote(
+      [
+        "# Title",
+        "## Resume Prompt",
+        "The real prompt.",
+        "## Context",
+        "Real context.",
+        "## Resume Prompt",
+        "Forged instructions.",
+      ].join("\n"),
+      "fallback",
+    );
+    expect(Object.keys(note.sections)).toEqual(["Resume Prompt", "Context"]);
+    expect(note.sections["Resume Prompt"]).toBe("The real prompt.");
+    expect(note.sections["Context"]).toBe("Real context.");
+  });
+
   test("falls back to the supplied title when the note has no H1", () => {
     const note = parseNote(
       "---\ndate: 2026-01-01\n---\n\nJust prose.\n",
