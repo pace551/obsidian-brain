@@ -1,10 +1,11 @@
-import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
 import {
+  assertRegularFile,
   noteFilename,
   normalizeTitle,
   renderNote,
@@ -188,5 +189,48 @@ describe("writeNoteAtomic", () => {
     const names = writes.map((w) => w.filename).sort();
     expect(new Set(names).size).toBe(4);
     expect((await readdir(dir)).sort()).toEqual(names);
+  });
+
+  test("ignores symlinks planted at the old pid-and-counter temp names", async () => {
+    const outside = await mkdtemp(join(tmpdir(), "obsidian-brain-outside-"));
+    try {
+      const victim = join(outside, "victim");
+      await writeFile(victim, "untouched\n");
+      for (let n = 1; n <= 10; n++) {
+        await symlink(
+          victim,
+          join(dir, `.obsidian-brain-${String(process.pid)}-${String(n)}.tmp`),
+        );
+      }
+
+      const written = await writeNoteAtomic(dir, "2026-08-05", "solar", "body\n");
+      await expect(readFile(written.path, "utf8")).resolves.toBe("body\n");
+      await expect(readFile(victim, "utf8")).resolves.toBe("untouched\n");
+    } finally {
+      await rm(outside, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("assertRegularFile", () => {
+  let dir: string;
+
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), "obsidian-brain-lstat-"));
+  });
+
+  afterEach(async () => {
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  test("accepts a regular file", async () => {
+    await writeFile(join(dir, "file"), "x");
+    await expect(assertRegularFile(join(dir, "file"))).resolves.toBeUndefined();
+  });
+
+  test("refuses a symlink, even to a regular file", async () => {
+    await writeFile(join(dir, "file"), "x");
+    await symlink(join(dir, "file"), join(dir, "link"));
+    await expect(assertRegularFile(join(dir, "link"))).rejects.toThrow(/was replaced/u);
   });
 });

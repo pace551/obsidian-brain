@@ -1,15 +1,13 @@
 /** Rendering a capture into the vault's note format, and getting it onto disk safely. */
 
-import { link, mkdir, unlink, writeFile } from "node:fs/promises";
+import { randomBytes } from "node:crypto";
+import { link, lstat, mkdir, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import type { CaptureNoteInput } from "./schema.js";
 
 const MAX_SLUG_WORDS = 6;
 const MAX_COLLISION_SUFFIX = 50;
-
-/** Distinguishes concurrent writes within one process; pid distinguishes processes. */
-let tempCounter = 0;
 
 /** Collapse any run of whitespace so a title can't smuggle newlines into the heading. */
 export function normalizeTitle(title: string): string {
@@ -99,6 +97,31 @@ export function noteFilename(date: string, slug: string, attempt: number): strin
 }
 
 /**
+ * Stage `content` in a fresh temp file in `dir` and return its path.
+ *
+ * The name is random and the file is opened with `wx` (O_CREAT | O_EXCL), so an entry
+ * already sitting at that name — notably a symlink planted by anyone who can write into
+ * the vault — makes the write fail instead of being followed to a file outside the vault.
+ */
+export async function writeTempFile(
+  dir: string,
+  content: string,
+  mode: number,
+): Promise<string> {
+  const temp = join(dir, `.obsidian-brain-${randomBytes(16).toString("hex")}.tmp`);
+  await writeFile(temp, content, { encoding: "utf8", mode, flag: "wx" });
+  return temp;
+}
+
+/** Refuse to move a temp entry into place unless it is still the regular file we wrote. */
+export async function assertRegularFile(path: string): Promise<void> {
+  const info = await lstat(path);
+  if (!info.isFile()) {
+    throw new Error(`refusing to write: temp file ${path} was replaced`);
+  }
+}
+
+/**
  * Write `content` into `dir` under the first free `noteFilename` variant.
  *
  * Obsidian watches the vault, so a half-written file is a real hazard: the content is
@@ -113,12 +136,10 @@ export async function writeNoteAtomic(
   content: string,
 ): Promise<{ filename: string; path: string }> {
   await mkdir(dir, { recursive: true });
-  tempCounter += 1;
-  const stamp = `${String(process.pid)}-${String(tempCounter)}`;
-  const temp = join(dir, `.obsidian-brain-${stamp}.tmp`);
-  await writeFile(temp, content, { encoding: "utf8", mode: 0o644 });
+  const temp = await writeTempFile(dir, content, 0o644);
 
   try {
+    await assertRegularFile(temp);
     for (let attempt = 1; attempt <= MAX_COLLISION_SUFFIX; attempt++) {
       const filename = noteFilename(date, slug, attempt);
       const target = join(dir, filename);

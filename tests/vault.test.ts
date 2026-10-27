@@ -1,4 +1,12 @@
-import { mkdir, readFile, symlink, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  readFile,
+  realpath,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -9,6 +17,7 @@ import {
   firstSentence,
   parseNote,
   resolveNotePath,
+  resolveVaultDir,
   VaultError,
   walkVault,
 } from "../src/vault.js";
@@ -88,6 +97,49 @@ describe("resolveNotePath", () => {
     const root = await assertVaultRoot(FIXTURE_VAULT);
     await expect(resolveNotePath(root, "Inbox/does-not-exist.md")).rejects.toThrow(
       /not found/u,
+    );
+  });
+});
+
+describe("resolveVaultDir", () => {
+  test("creates a missing directory and returns its canonical path", async () => {
+    vault = await makeVault();
+    const root = await assertVaultRoot(vault.root);
+    await rm(join(root, "Inbox"), { recursive: true, force: true });
+
+    const dir = await resolveVaultDir(root, "Inbox");
+    expect(dir).toBe(join(root, "Inbox"));
+    expect((await stat(dir)).isDirectory()).toBe(true);
+  });
+
+  test("accepts a symlinked directory that stays inside the vault", async () => {
+    vault = await makeVault();
+    const root = await assertVaultRoot(vault.root);
+    await rm(join(root, "Inbox"), { recursive: true, force: true });
+    await symlink(join(root, "Resources"), join(root, "Inbox"));
+
+    await expect(resolveVaultDir(root, "Inbox")).resolves.toBe(join(root, "Resources"));
+  });
+
+  test("rejects a directory that is a symlink pointing outside the vault", async () => {
+    vault = await makeVault();
+    const elsewhere = await makeVault();
+    try {
+      const root = await assertVaultRoot(vault.root);
+      await rm(join(root, "Inbox"), { recursive: true, force: true });
+      await symlink(await realpath(elsewhere.root), join(root, "Inbox"));
+
+      await expect(resolveVaultDir(root, "Inbox")).rejects.toThrow(/via a symlink/u);
+    } finally {
+      await elsewhere.cleanup();
+    }
+  });
+
+  test("rejects a directory outside the vault root", async () => {
+    vault = await makeVault();
+    const root = await assertVaultRoot(vault.root);
+    await expect(resolveVaultDir(root, "../elsewhere")).rejects.toBeInstanceOf(
+      VaultError,
     );
   });
 });

@@ -5,7 +5,7 @@
  * caller's content hash still matches the file.
  */
 
-import { readFile, realpath, symlink, writeFile } from "node:fs/promises";
+import { lstat, readFile, realpath, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
@@ -256,5 +256,31 @@ describe("updateNote", () => {
       context: "Via link.",
     });
     expect(await readFile(join(vault.root, PATH), "utf8")).toContain("Via link.");
+  });
+
+  test("ignores symlinks planted at the old pid-and-counter temp names", async () => {
+    vault = await makeVault([{ path: PATH, content: BASE }]);
+    const elsewhere = await makeVault([{ path: "victim.md", content: "untouched\n" }]);
+    try {
+      const victim = join(elsewhere.root, "victim.md");
+      for (let n = 1; n <= 10; n++) {
+        await symlink(
+          victim,
+          join(
+            vault.root,
+            `Areas/van/.obsidian-brain-${String(process.pid)}-${String(n)}.tmp`,
+          ),
+        );
+      }
+
+      await updateNote(await realpath(vault.root), PATH, contentHash(BASE), {
+        summary: "Updated.",
+      });
+      expect(await readFile(victim, "utf8")).toBe("untouched\n");
+      expect((await lstat(join(vault.root, PATH))).isFile()).toBe(true);
+      expect(await readFile(join(vault.root, PATH), "utf8")).toContain("Updated.");
+    } finally {
+      await elsewhere.cleanup();
+    }
   });
 });
