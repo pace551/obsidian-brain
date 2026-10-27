@@ -1,7 +1,7 @@
 /** The five tools. Wiring only — the behavior lives in note/edit/vault/search. */
 
 import { readFile } from "node:fs/promises";
-import { basename, join } from "node:path";
+import { basename } from "node:path";
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -18,7 +18,7 @@ import {
   updateNoteShape,
 } from "./schema.js";
 import { listRecent, searchNotes } from "./search.js";
-import { assertVaultRoot, parseNote, resolveNotePath } from "./vault.js";
+import { assertVaultRoot, parseNote, resolveNotePath, resolveVaultDir } from "./vault.js";
 
 function ok(payload: unknown): CallToolResult {
   return { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }] };
@@ -65,7 +65,7 @@ export function registerTools(server: McpServer, vaultRoot: string): void {
         const date = captured.date ?? today();
         const slug = captured.slug ?? slugify(captured.title);
         const written = await writeNoteAtomic(
-          join(realRoot, INBOX_DIR),
+          await resolveVaultDir(realRoot, INBOX_DIR),
           date,
           slug,
           renderNote(captured, date),
